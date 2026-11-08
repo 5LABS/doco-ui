@@ -12,7 +12,7 @@ Deployments erfolgreich sind. Häufige Betriebsaktionen sollen direkt erreichbar
 - Einstieg mit einem lokalen Docker-Host und einer doco-cd-Instanz.
 - Eigener Container neben doco-cd mit einem schlanken Go-Backend.
 - React mit TypeScript, Tailwind CSS, shadcn/ui und TanStack Query im Frontend.
-- Gruppierung nach Compose-Projekten; Linux-Namespaces sind kein eigener Bereich.
+- Gruppierung nach Compose-Projekten.
 - Alle Container des Hosts sind sichtbar, auch unabhängig von doco-cd.
 - Weitere Hosts sollen später auf derselben Grundstruktur ergänzt werden können.
 
