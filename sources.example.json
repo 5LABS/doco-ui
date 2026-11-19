@@ -1,0 +1,17 @@
+[
+  {
+    "id": "plattform",
+    "name": "Plattform",
+    "url": "https://github.com/example/platform.git",
+    "reference": "main",
+    "scope": "Zwei Projekte: Gateway und Monitoring"
+  },
+  {
+    "id": "portal",
+    "name": "Portal",
+    "url": "https://github.com/example/apps.git",
+    "reference": "main",
+    "target": "production",
+    "scope": "Ein Projekt: Portal"
+  }
+]
