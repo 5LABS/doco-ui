@@ -25,7 +25,9 @@ erkannt und in der Oberfläche ausgewiesen werden.
 ### Übersicht und Ressourcen
 
 - Dashboard mit Containerzuständen, Zustand der Compose-Projekte und letzten
-  Deployment-Läufen. Datenquelle und Verbindungszustand sind erkennbar.
+  Deployment-Läufen. Im Dashboard lassen sich konfigurierte GitOps-Quellen
+  auswählen, abgleichen und anhand ihres Laufstatus verfolgen. Datenquelle und
+  Verbindungszustand sind erkennbar.
 - Containerliste mit Suche, Statusfiltern und Gruppierung nach Compose-Projekt.
   Gestoppte und fehlerhafte Container bleiben auffindbar.
 - Containerdetails mit Image, Status, Healthcheck sofern vorhanden, Ports, Mounts,
@@ -44,8 +46,11 @@ separater Messwert und darf nicht aus der Summe der Containerwerte abgeleitet we
 - Container starten, stoppen und neu starten.
 - Compose-Projekte über die verfügbaren doco-cd-Endpunkte starten, stoppen und
   neu starten; unterstützte Projekte oder Services gezielt neu erstellen.
-- Deployments aus ihrer konfigurierten Quelle über doco-cd auslösen und den
-  tatsächlichen Laufstatus verfolgen.
+- Im Dashboard eine GitOps-Quelle auswählen und zusätzlich zu Webhooks und
+  automatischem Polling einen Abgleich über doco-cd starten. Die Auswahl zeigt
+  vor dem Start, welche Konfiguration abgeglichen wird und ob sie mehrere
+  Projekte umfasst. Doco-cd deployt bei Bedarf und das Dashboard zeigt den
+  tatsächlichen Laufstatus.
 - Aktionen nach Ziel, Verwaltungszuordnung und API-Fähigkeiten anbieten.
   Compose-Gruppierung allein gilt nicht als Nachweis für doco-cd-Verwaltung.
 - Ausstehende Aktionen anzeigen, doppelte Ausführung verhindern und nach Abschluss
@@ -85,6 +90,12 @@ Der doco-cd-API-Schlüssel und Docker-Zugangsdaten bleiben im Backend.
   zusammen. Das Backend bietet gezielte Operationen an.
 - Konfiguration und Zugangsdaten kommen aus Umgebungsvariablen beziehungsweise
   Secret-Dateien. Für den ersten Umfang ist keine zusätzliche Datenbank geplant.
+- Das Backend hält die auswählbaren GitOps-Quellen mit Repository-URL und bei
+  Bedarf Git-Referenz und doco-cd-Target vor. Es löst die ausgewählte Quelle auf
+  und startet den Abgleich mit `POST /v1/api/poll/run?wait=false`. Mit der
+  zurückgegebenen `job_id` fragt es den Laufstatus regelmäßig über
+  `GET /v1/api/run/{jobID}` ab, bis der Lauf den Status `succeeded`, `failed`
+  oder `skipped` erreicht.
 
 Die konkrete Mindestversion von doco-cd wird vor der Integration festgelegt und
 gegen deren API geprüft. Die jeweils aktuelle Dokumentation ist keine feste
@@ -132,12 +143,15 @@ Remote-Verbindungen über SSH oder TLS gehören in einen späteren Ausbauschritt
 1. **Grundgerüst:** Go-Server, React-Frontend, Vite, Tailwind, shadcn/ui, Query und
    Router einrichten. Der Produktionsbuild wird als ein Container ausgeliefert;
    direkt aufgerufene Frontend-Routen funktionieren.
-2. **Inventar:** lokales Ziel, Docker- und doco-cd-Adapter, Container-, Projekt-
-   und Netzwerkansichten anbinden. Zugehörigkeiten und getrennte Verbindungsfehler
-   werden mit echten API-Daten korrekt angezeigt.
+2. **Inventar:** lokales Ziel, Docker- und doco-cd-Adapter, Dashboard sowie
+   Container-, Projekt- und Netzwerkansichten anbinden. Zugehörigkeiten und
+   getrennte Verbindungsfehler werden mit echten API-Daten korrekt angezeigt.
 3. **Betrieb:** Logs und unterstützte Container-/Compose-Aktionen ergänzen.
-   Laufende, erfolgreiche und fehlgeschlagene Aktionen bleiben unterscheidbar;
-   nicht unterstützte Aktionen sind nicht ausführbar.
+   Bei zwei konfigurierten GitOps-Quellen startet das Dashboard den Abgleich für
+   die ausgewählte Quelle und zeigt den zugehörigen Laufstatus einschließlich
+   übersprungener Läufe. Laufende, erfolgreiche und fehlgeschlagene Aktionen
+   bleiben unterscheidbar.
+   Nicht unterstützte Aktionen sind nicht ausführbar.
 4. **Statistiken:** Container-CPU, RAM und kurzen Verlauf integrieren.
    Werte sind nachvollziehbar beschriftet und die Erfassung bleibt begrenzt.
 5. **Auslieferung:** Compose-Beispiel neben doco-cd, Konfigurationsanleitung und
