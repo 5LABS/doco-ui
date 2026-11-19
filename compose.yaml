@@ -1,0 +1,42 @@
+services:
+  doco-cd:
+    image: ghcr.io/kimdre/doco-cd:0.135.0
+    restart: unless-stopped
+    environment:
+      API_KEYS_FILE: /run/secrets/doco_keys
+    secrets: [doco_keys]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - doco_data:/data
+
+  doco-ui:
+    build: .
+    restart: unless-stopped
+    ports: ["127.0.0.1:8080:8080"]
+    group_add: ["${DOCKER_GID:?GID des Docker-Sockets angeben}"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      DOCO_URL: http://doco-cd:80
+      DOCO_KEY_FILE: /run/secrets/doco_key
+      UI_PASSWORD_FILE: /run/secrets/ui_password
+      UI_WRITE: "${UI_WRITE:-false}"
+      DOCO_CONTROL: "${DOCO_CONTROL:-false}"
+      DOCO_POLL: "${DOCO_POLL:-false}"
+      GITOPS_SOURCES_FILE: /etc/doco-ui/sources.json
+    secrets: [ui_password, doco_key]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./sources.json:/etc/doco-ui/sources.json:ro
+
+secrets:
+  ui_password:
+    file: ./secrets/ui_password
+  doco_key:
+    file: ./secrets/doco_key
+  doco_keys:
+    file: ./secrets/doco_keys.yaml
+
+volumes:
+  doco_data:

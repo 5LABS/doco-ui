@@ -1,0 +1,7 @@
+/web/node_modules/
+/web/dist/
+/doco-ui
+.git
+/secrets/
+/sources.json
+/.env

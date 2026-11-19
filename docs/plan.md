@@ -1,7 +1,7 @@
 # Projektplan für doco-ui
 
-Stand: 8. November 2026. Dieses Dokument beschreibt die geplante Anwendung.
-Es ist noch keine Implementierung vorhanden.
+Stand: 19. November 2026. Die fünf Umsetzungsschritte der ersten Version sind implementiert.
+Start, Konfiguration und Versionsanforderungen stehen in der [Betriebsanleitung](../README.md).
 
 ## Ziel und abgestimmte Entscheidungen
 
@@ -97,9 +97,8 @@ Der doco-cd-API-Schlüssel und Docker-Zugangsdaten bleiben im Backend.
   `GET /v1/api/run/{jobID}` ab, bis der Lauf den Status `succeeded`, `failed`
   oder `skipped` erreicht.
 
-Die konkrete Mindestversion von doco-cd wird vor der Integration festgelegt und
-gegen deren API geprüft. Die jeweils aktuelle Dokumentation ist keine feste
-Kompatibilitätszusage für ältere Installationen.
+Als API-Basis dient doco-cd 0.135.0. Die dafür verwendeten Endpunkte und
+Berechtigungen sind in der Betriebsanleitung beschrieben.
 
 ### Zuständigkeit der Datenquellen
 
@@ -157,14 +156,17 @@ Remote-Verbindungen über SSH oder TLS gehören in einen späteren Ausbauschritt
 5. **Auslieferung:** Compose-Beispiel neben doco-cd, Konfigurationsanleitung und
    dokumentierte Versionsanforderungen vervollständigen.
 
-## Noch zu konkretisieren
+## Entscheidungen der ersten Version
 
-- Mindestversion von doco-cd, Erkennung verwalteter Ressourcen und tatsächlich
-  verfügbare Detailinformationen und Aktionen.
-- Zugang zur Control UI: eigene Sitzung oder Einbindung einer vorhandenen
-  Authentifizierung. Dies wird vor einem nutzbaren schreibenden Zugriff festgelegt.
-- Oberflächensprache sowie visuelle Gestaltung für helle und dunkle Darstellung.
-- Messintervall und Grenzen des kurzen Statistikverlaufs; zusätzliche Host-Metriken.
+- Die Integration verwendet die API von doco-cd 0.135.0 und Docker Engine API
+  v1.44. Projektaktionen prüfen die Projektliste und die Manager-Labels der
+  zugehörigen Container auf dem lokalen Ziel im Context `default`.
+- HTTP Basic Auth schützt die gesamte Anwendung. Schreibzugriff, Projektsteuerung
+  und GitOps-Abgleiche lassen sich getrennt konfigurieren.
+- Die deutschsprachige Oberfläche übernimmt den hellen oder dunklen Systemmodus.
+- Geöffnete Containerdetails zeigen CPU, RAM und einen fünfminütigen Verlauf über
+  SSE. Der Server begrenzt die Erfassung auf eine Messung je fünf Sekunden und
+  Container, höchstens 60 Messpunkte je Verlauf und 64 Verläufe.
 
 Mehrere Hosts, langfristige Metrikspeicherung, ein Compose-Editor und Löschaktionen
 mit Datenbereinigung werden nach dem ersten Umfang geplant.
