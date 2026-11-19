@@ -55,6 +55,12 @@ func (a *App) action(w http.ResponseWriter, r *http.Request) {
 		for _, c := range inv.Containers {
 			if c.Project == id {
 				members++
+				memberKey := "containers/" + c.ID
+				if _, busy := a.locks.LoadOrStore(memberKey, true); busy {
+					http.Error(w, "Aktion läuft bereits", 409)
+					return
+				}
+				defer a.locks.Delete(memberKey)
 				if !c.Managed {
 					http.Error(w, "Projekt nicht vollständig von doco-cd verwaltet", 409)
 					return
@@ -64,9 +70,13 @@ func (a *App) action(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		d, _ := a.loadDeployments()
+		projects, err := a.loadProjects(ctx)
+		if err != nil {
+			http.Error(w, err.Error(), 502)
+			return
+		}
 		known := false
-		for _, p := range d.Projects {
+		for _, p := range projects {
 			if p.Name == id {
 				known = true
 			}
@@ -84,6 +94,10 @@ func (a *App) action(w http.ResponseWriter, r *http.Request) {
 		found := false
 		for _, c := range inv.Containers {
 			if c.ID == id && containerActionAllowed(c.State, action) {
+				if _, busy := a.locks.Load("projects/" + c.Project); busy {
+					http.Error(w, "Aktion läuft bereits", 409)
+					return
+				}
 				found = true
 			}
 		}
@@ -196,9 +210,12 @@ func (a *App) logs(w http.ResponseWriter, r *http.Request) {
 	}
 	defer res.Body.Close()
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(200)
 	ctrl := http.NewResponseController(w)
-	ctrl.Flush()
+	ctrl.SetWriteDeadline(time.Now().Add(65 * time.Second))
+	w.WriteHeader(200)
+	if ctrl.Flush() != nil {
+		return
+	}
 	remaining := int64(256 << 10)
 	buf := make([]byte, 8192)
 	for remaining > 0 {
@@ -216,7 +233,9 @@ func (a *App) logs(w http.ResponseWriter, r *http.Request) {
 				if _, err := w.Write(buf[:count]); err != nil {
 					return
 				}
-				ctrl.Flush()
+				if ctrl.Flush() != nil {
+					return
+				}
 				n -= int64(count)
 				remaining -= int64(count)
 			}

@@ -5,5 +5,5 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': new URL('./src', import.meta.url).pathname } },
-  server: { fs: { allow: ['..'] }, proxy: { '/api': 'http://127.0.0.1:8080' } },
+  server: { fs: { allow: ['.', '../assets'] }, proxy: { '/api': 'http://127.0.0.1:8080' } },
 })
