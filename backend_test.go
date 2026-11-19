@@ -212,3 +212,99 @@ func TestRecreateRequiresKnownServiceAndManagedProject(t *testing.T) {
 		t.Fatal("unknown service accepted")
 	}
 }
+
+func TestProjectAndMemberActionsConflict(t *testing.T) {
+	id := strings.Repeat("a", 64)
+	project := "/actions/projects/demo/stop"
+	member := "/actions/containers/" + id + "/restart"
+	for _, tc := range []struct{ first, second string }{{project, member}, {member, project}} {
+		t.Run(tc.first, func(t *testing.T) {
+			entered, release := make(chan struct{}), make(chan struct{})
+			var posts atomic.Int32
+			client := &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+				data := "[]"
+				switch {
+				case r.Method == "POST":
+					if posts.Add(1) == 1 {
+						close(entered)
+						<-release
+					}
+				case strings.HasSuffix(r.URL.Path, "/containers/json"):
+					data = `[{"Id":"` + id + `","State":"running","Labels":{"com.docker.compose.project":"demo","cd.doco.metadata.manager":"doco-cd"}}]`
+				case strings.HasSuffix(r.URL.Path, "/projects"):
+					data = `{"content":[{"Name":"demo"}]}`
+				}
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(data))}, nil
+			})}
+			a := &App{docker: client, cd: client, endpoint: "http://cd", password: "test", write: true, control: true}
+			h := testHandler(t, a)
+			done := make(chan int, 1)
+			go func() { done <- post(h, tc.first, true, true).Code }()
+			select {
+			case <-entered:
+			case code := <-done:
+				t.Fatalf("first action returned early: %d", code)
+			case <-time.After(time.Second):
+				close(release)
+				t.Fatal("first action did not reach upstream")
+			}
+			code := post(h, tc.second, true, true).Code
+			close(release)
+			if first := <-done; first != 200 || code != 409 || posts.Load() != 1 {
+				t.Fatalf("responses %d, %d; forwarded actions %d", first, code, posts.Load())
+			}
+			if got := post(h, tc.second, true, true).Code; got != 200 {
+				t.Fatalf("action after release: %d", got)
+			}
+		})
+	}
+}
+
+func TestRunHistoryIndependentOfProjectDiscovery(t *testing.T) {
+	runsRequested := make(chan struct{})
+	a := &App{endpoint: "http://cd", cd: &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+		if strings.HasSuffix(r.URL.Path, "/projects") {
+			select {
+			case <-runsRequested:
+			case <-time.After(time.Second):
+				t.Error("project lookup blocked run lookup")
+			}
+			return &http.Response{StatusCode: 503, Body: http.NoBody}, nil
+		}
+		close(runsRequested)
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"content":[{"job_id":"run"}]}`))}, nil
+	})}}
+	d, _ := a.loadDeployments()
+	if d.ProjectsError == "" || d.RunsError != "" || len(d.Runs) != 1 || d.Runs[0].ID != "run" {
+		t.Fatalf("unexpected deployments: %+v", d)
+	}
+}
+
+type failingLogWriter struct {
+	*httptest.ResponseRecorder
+	deadline time.Time
+}
+
+func (w *failingLogWriter) SetWriteDeadline(deadline time.Time) error {
+	w.deadline = deadline
+	return nil
+}
+
+func (w *failingLogWriter) FlushError() error { return io.ErrClosedPipe }
+
+func TestLogsBoundWritesAndStopOnFlushFailure(t *testing.T) {
+	a := &App{docker: &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+		data := `{"Config":{"Tty":true}}`
+		if strings.HasSuffix(r.URL.Path, "/logs") {
+			data = "log content"
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(data))}, nil
+	})}}
+	r := httptest.NewRequest("GET", "/", nil)
+	r.SetPathValue("id", strings.Repeat("a", 64))
+	w := &failingLogWriter{ResponseRecorder: httptest.NewRecorder()}
+	a.logs(w, r)
+	if w.deadline.IsZero() || time.Until(w.deadline) > 65*time.Second || w.Body.Len() != 0 {
+		t.Fatalf("deadline %v, body %q", w.deadline, w.Body)
+	}
+}

@@ -261,20 +261,37 @@ type Deployments struct {
 	ProjectsError, RunsError string
 }
 
+func (a *App) loadProjects(parent context.Context) ([]Project, error) {
+	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
+	defer cancel()
+	var projects envelope[[]Project]
+	err := a.call(ctx, true, "GET", "/projects?all=true", nil, &projects)
+	if err == errNoProjects {
+		err = nil
+	}
+	return projects.Content, err
+}
+
 func (a *App) loadDeployments() (Deployments, error) {
+	var d Deployments
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		var err error
+		d.Projects, err = a.loadProjects(context.Background())
+		if err != nil {
+			d.ProjectsError = err.Error()
+		}
+	}()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	var p envelope[[]Project]
 	var runs envelope[[]Run]
-	var d Deployments
-	e := a.call(ctx, true, "GET", "/projects?all=true", nil, &p)
-	if e != nil && e != errNoProjects {
-		d.ProjectsError = e.Error()
+	if err := a.call(ctx, true, "GET", "/runs?limit=30", nil, &runs); err != nil {
+		d.RunsError = err.Error()
 	}
-	if e = a.call(ctx, true, "GET", "/runs?limit=30", nil, &runs); e != nil {
-		d.RunsError = e.Error()
-	}
-	d.Projects, d.Runs = p.Content, runs.Content
+	d.Runs = runs.Content
+	<-done
 	return d, nil
 }
 func (a *App) routes(m *http.ServeMux) {
