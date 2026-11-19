@@ -91,9 +91,11 @@ Der doco-cd-API-Schlüssel und Docker-Zugangsdaten bleiben im Backend.
 - Konfiguration und Zugangsdaten kommen aus Umgebungsvariablen beziehungsweise
   Secret-Dateien. Für den ersten Umfang ist keine zusätzliche Datenbank geplant.
 - Das Backend hält die auswählbaren GitOps-Quellen mit Repository-URL und bei
-  Bedarf Git-Referenz und doco-cd-Target vor. Es löst die ausgewählte Quelle auf,
-  stößt den Poll-Lauf bei doco-cd an und fragt den Status über die zurückgegebene
-  `job_id` ab.
+  Bedarf Git-Referenz und doco-cd-Target vor. Es löst die ausgewählte Quelle auf
+  und startet den Abgleich mit `POST /v1/api/poll/run?wait=false`. Mit der
+  zurückgegebenen `job_id` fragt es den Laufstatus regelmäßig über
+  `GET /v1/api/run/{jobID}` ab, bis der Lauf den Status `succeeded`, `failed`
+  oder `skipped` erreicht.
 
 Die konkrete Mindestversion von doco-cd wird vor der Integration festgelegt und
 gegen deren API geprüft. Die jeweils aktuelle Dokumentation ist keine feste
